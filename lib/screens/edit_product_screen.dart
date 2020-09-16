@@ -275,6 +275,9 @@ class _EditProductScreenState extends State<EditProductScreen> {
                                 isFavorite: _editedProduct.isFavorite,
                               );
                             },
+                            onEditingComplete: () {
+                              setState(() {});
+                            },
                             validator: (value) {
                               if (value.isEmpty) {
                                 return 'Please enter an image URL';

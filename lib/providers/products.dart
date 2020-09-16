@@ -5,6 +5,9 @@ import 'package:shop_app/models/http_exception.dart';
 import './product.dart';
 
 class Products with ChangeNotifier {
+  final String authToken;
+  final String userId;
+
   List<Product> _items = [
     // Product(
     //   id: 'p1',
@@ -64,24 +67,31 @@ class Products with ChangeNotifier {
   //   _showFavoritesOnly = false;
   //   notifyListeners();
   // }
+  Products(this.authToken, this.userId, this._items);
 
-  Future<void> fetchAndSetProducts() async {
-    const url =
-        'https://academind-flutter-shop-app.firebaseio.com/products.json';
+  Future<void> fetchAndSetProducts([bool filterByUser = false]) async {
+    final filterString =
+        filterByUser ? 'orderBy="creatorId"&equalTo="$userId"' : '';
+    var url =
+        'https://academind-flutter-shop-app.firebaseio.com/products.json?auth=$authToken&$filterString';
     try {
       final response = await http.get(url);
       final extractedData = json.decode(response.body) as Map<String, dynamic>;
       final List<Product> loadedProducts = [];
       if (extractedData == null) return;
+      url =
+          'https://academind-flutter-shop-app.firebaseio.com/userFavorites/$userId.json?auth=$authToken';
+      final favoriteResponse = await http.get(url);
+      final favoriteData = json.decode(favoriteResponse.body);
       extractedData.forEach((prodId, prodData) {
         loadedProducts.add(Product(
-          id: prodId,
-          title: prodData['title'],
-          price: prodData['price'],
-          description: prodData['description'],
-          imageUrl: prodData['imageUrl'],
-          isFavorite: prodData['isFavorite'],
-        ));
+            id: prodId,
+            title: prodData['title'],
+            price: prodData['price'],
+            isFavorite:
+                favoriteData == null ? false : favoriteData[prodId] ?? false,
+            description: prodData['description'],
+            imageUrl: prodData['imageUrl']));
       });
       _items = loadedProducts;
       notifyListeners();
@@ -91,8 +101,8 @@ class Products with ChangeNotifier {
   }
 
   Future<void> addProduct(Product product) async {
-    const url =
-        'https://academind-flutter-shop-app.firebaseio.com/products.json';
+    final url =
+        'https://academind-flutter-shop-app.firebaseio.com/products.json?auth=$authToken';
     try {
       final response = await http.post(url,
           body: json.encode({
@@ -100,7 +110,7 @@ class Products with ChangeNotifier {
             'description': product.description,
             'imageUrl': product.imageUrl,
             'price': product.price,
-            'isFavorite': product.isFavorite,
+            'creatorId': userId,
           }));
       final newProduct = Product(
         id: json.decode(response.body)['name'],
@@ -122,7 +132,7 @@ class Products with ChangeNotifier {
     final prodIndex = _items.indexWhere((prod) => prod.id == id);
     if (prodIndex >= 0) {
       final url =
-          'https://academind-flutter-shop-app.firebaseio.com/products/$id.json';
+          'https://academind-flutter-shop-app.firebaseio.com/products/$id.json?auth=$authToken';
       await http.patch(url,
           body: json.encode({
             'title': newProduct.title,
@@ -137,7 +147,7 @@ class Products with ChangeNotifier {
 
   Future<void> deleteProduct(String id) async {
     final url =
-        'https://academind-flutter-shop-app.firebaseio.com/products/$id.json';
+        'https://academind-flutter-shop-app.firebaseio.com/products/$id.json?auth=$authToken';
     final existingProductIndex = _items.indexWhere((prod) => prod.id == id);
     var existingProduct = _items[existingProductIndex];
     _items.removeWhere((prod) => prod.id == id);
